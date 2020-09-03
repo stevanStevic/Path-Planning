@@ -52,7 +52,10 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+  double ref_vel = 0;
+  int lane = 1;
+
+  h.onMessage([&ref_vel, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
@@ -95,10 +98,51 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
-          double ref_vel = 49.5;
-          int lane = 1;
-
           int prev_size = previous_path_x.size();
+
+          // Sensor fusion
+          if (prev_size > 2)
+          {
+            car_s = end_path_s;
+          }
+
+          bool too_close = false;
+
+          //find ref_v to use
+          for (int i = 0; i < sensor_fusion.size(); ++i)
+          {
+            // car is in my lane
+            float d = sensor_fusion[i][6];
+            if ((d > lane * 4) && (d < (lane * 4 + 4)))
+            {
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_speed = sqrt(vx*vx + vy*vy);
+              double check_car_s = sensor_fusion[i][5];
+
+              // predict where the car would be at the end of trajectory
+              check_car_s += (check_speed * 0.02 * prev_size);
+
+              const double gap = check_car_s - car_s;
+              if((check_car_s > car_s) && (gap < 30))
+              {
+                // Too close
+                // TODO: Change lanes or decelrate
+                // ref_vel = 29.5;
+                too_close = true;
+              }
+            }
+          }
+
+          if(too_close)
+          {
+            ref_vel -= .224;
+          }
+          else if(ref_vel < 49.5)
+          {
+            ref_vel += .224;
+          }
+          // Trajcetory generation
 
           vector<double> ptsx;
           vector<double> ptsy;

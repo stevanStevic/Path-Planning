@@ -2,6 +2,7 @@
 #define TYPES_H
 
 #include <vector>
+#include <stdint.h>
 
 struct TrajectoryPts
 {
@@ -30,11 +31,11 @@ struct WorldMap
     std::vector<double> waypoints_dy;
 };
 
-enum class Mission
+enum class Mission : int8_t
 {
-    kKeepLane,
-    kChangeLaneLeft,
-    kChaneLaneRight
+    kChangeLaneLeft = -1,
+    kKeepLane = 0,
+    kChangeLaneRight = 1
 };
 
 #endif

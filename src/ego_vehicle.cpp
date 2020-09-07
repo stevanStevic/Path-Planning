@@ -6,6 +6,8 @@
 #include "spline.h"
 
 #include <cmath>
+#include <algorithm>
+#include <iostream>
 
 void EgoVehicle::UpdateExistingTrajectory(const TrajectoryPts& prev_trajectory)
 {
@@ -32,10 +34,114 @@ void EgoVehicle::UpdatePosition(const Vehicle& localization_data, const Trajecto
     UpdateExistingTrajectory(prev_trajectory);
 }
 
+bool EgoVehicle::IsLaneChangePossible(const Mission mission) const
+{
+    const int8_t new_lane = current_lane_ + static_cast<int8_t>(mission);
+
+    return (new_lane >= 0) && (new_lane < kNumOfLanes);
+}
+
+std::vector<Mission> EgoVehicle::GetPossibleMissions()
+{
+    std::vector<Mission> possible_missions;
+
+    possible_missions.push_back(Mission::kKeepLane);
+
+    if (Mission::kKeepLane == mission_)
+    {
+        if (IsLaneChangePossible(Mission::kChangeLaneLeft))
+        {
+            possible_missions.push_back(Mission::kChangeLaneLeft);
+        }
+
+        if(IsLaneChangePossible(Mission::kChangeLaneRight))
+        {
+            possible_missions.push_back(Mission::kChangeLaneRight);
+        }
+    }
+
+    return possible_missions;
+}
+
+double Sigmoid(const double& x, const double& y)
+{
+
+    return 1 - exp((-x) / y);
+}
+
+// double EgoVehicle::cost(const std::vector<Vehicle>& predictions)
+
+void EgoVehicle::ChooseNextMission(const std::vector<Vehicle>& predictions)
+{
+    // Check cost of staying in the same lane
+    const auto possible_missions = GetPossibleMissions();
+    std::vector<double> costs;
+
+    for (const Mission mission : possible_missions)
+    {
+        Vehicle vehicle_ahead;
+        double cost = 0;
+
+        // For every state calucalte cost
+        auto new_lane = static_cast<uint8_t>(current_lane_ + static_cast<int8_t>(mission));
+        std::cout << "New lane: " << (int)new_lane << std::endl;
+        if (GetVehicleAhead(predictions, vehicle_ahead, new_lane))
+        {
+            // The slower the lane, higher the cost
+            cost = 15000 * Sigmoid(vehicle_ahead.velocity / kSpeedLimit, 1.0);
+
+            // Punish beign too close
+            cost += 35000 * Sigmoid(1.0, vehicle_ahead.s - s_);
+        }
+
+        costs.push_back(cost);
+    }
+
+
+
+    int min_index = -1;
+    double lowest_cost = std::numeric_limits<double>::max();
+
+    for (auto i = 0; i < costs.size(); ++i)
+    {
+        if (lowest_cost > costs[i])
+        {
+            lowest_cost = costs[i];
+            min_index = i;
+        }
+    }
+
+    mission_ == possible_missions[min_index];
+
+    current_lane_ += static_cast<int8_t>(possible_missions[min_index]);
+}
 
 void EgoVehicle::ExecuteKeepLane(const std::vector<Vehicle>& predictions)
 {
+    Vehicle vehicle_ahead;
+    ChooseNextMission(predictions);
 
+    // if (GetVehicleAhead(predictions, vehicle_ahead, current_lane_))
+    // {
+
+    // }
+}
+
+bool EgoVehicle::IsLaneTransitionCompleted() const
+{
+    const double reference_lane_center = kLaneCenterOffset + current_lane_ * kLaneWidth;
+
+    const double diff_to_lane_center = std::fabs(reference_lane_center - d_);
+
+    return diff_to_lane_center < 0.2;
+}
+
+void EgoVehicle::ExecuteLaneChange()
+{
+    if (IsLaneTransitionCompleted())
+    {
+        mission_ = Mission::kKeepLane;
+    }
 }
 
 void EgoVehicle::PlanMission(const std::vector<Vehicle>& predictions)
@@ -43,14 +149,47 @@ void EgoVehicle::PlanMission(const std::vector<Vehicle>& predictions)
     switch (mission_)
     {
     case Mission::kKeepLane:
+    {
         ExecuteKeepLane(predictions);
         break;
-
+    }
+    case Mission::kChangeLaneLeft:
+    case Mission::kChangeLaneRight:
+    {
+        ExecuteLaneChange();
+        break;
+    }
     default:
         break;
     }
 }
 
+bool EgoVehicle::GetVehicleAhead(const std::vector<Vehicle>& predictions,
+                                Vehicle& vehicle_ahead,
+                                uint8_t ego_lane)
+{
+    bool found_vehicle{false};
+    double closest_vehicle_distance = std::numeric_limits<double>::max();
+
+    for (const auto& vehicle : predictions)
+    {
+        const float d = vehicle.d;
+        // Check if detected vehicle is in lane of ego vehicle
+        if ((d > ego_lane * kLaneWidth) && (d < (ego_lane * kLaneWidth + kLaneWidth)))
+        {
+            // Check if it is closer
+            // double distance_diff = std::fabs(vehicle.s) - s_;
+            if (vehicle.s > s_ && vehicle.s < closest_vehicle_distance)
+            {
+                closest_vehicle_distance = vehicle.s;
+                vehicle_ahead = vehicle;
+                found_vehicle = true;
+            }
+        }
+    }
+
+    return found_vehicle;
+}
 
 TrajectoryPts EgoVehicle::GenerateTrajectory(const WorldMap& map)
 {
@@ -93,9 +232,9 @@ TrajectoryPts EgoVehicle::GenerateTrajectory(const WorldMap& map)
     }
 
     // Generate 3 points that represent main (anchor) points where spline has to connect
-    std::vector<double> next_wp0{getXY(s_ + 30, (kLaneCenter + kLaneWidth * current_lane_), map.waypoints_s, map.waypoints_x, map.waypoints_y)};
-    std::vector<double> next_wp1{getXY(s_ + 60, (kLaneCenter + kLaneWidth * current_lane_), map.waypoints_s, map.waypoints_x, map.waypoints_y)};
-    std::vector<double> next_wp2{getXY(s_ + 90, (kLaneCenter + kLaneWidth * current_lane_), map.waypoints_s, map.waypoints_x, map.waypoints_y)};
+    std::vector<double> next_wp0{getXY(s_ + 30, (kLaneCenterOffset + kLaneWidth * current_lane_), map.waypoints_s, map.waypoints_x, map.waypoints_y)};
+    std::vector<double> next_wp1{getXY(s_ + 60, (kLaneCenterOffset + kLaneWidth * current_lane_), map.waypoints_s, map.waypoints_x, map.waypoints_y)};
+    std::vector<double> next_wp2{getXY(s_ + 90, (kLaneCenterOffset + kLaneWidth * current_lane_), map.waypoints_s, map.waypoints_x, map.waypoints_y)};
 
     new_trajectory.x_pts.push_back(next_wp0[0]);
     new_trajectory.x_pts.push_back(next_wp1[0]);
@@ -114,6 +253,9 @@ TrajectoryPts EgoVehicle::GenerateTrajectory(const WorldMap& map)
         new_trajectory.y_pts[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 -ref_yaw));
     }
 
+    // Generate new points
+    tk::spline s;
+    s.set_points(new_trajectory.x_pts, new_trajectory.y_pts);
 
     for (int i = 0; i < prev_size; ++i)
     {
@@ -121,12 +263,8 @@ TrajectoryPts EgoVehicle::GenerateTrajectory(const WorldMap& map)
         new_trajectory.y_pts.push_back(trajectory_.y_pts[i]);
     }
 
-    // Generate new points
-    tk::spline s;
-    s.set_points(new_trajectory.x_pts, new_trajectory.y_pts);
-
     // How far we predict along the road
-    double target_x = kPredictionTarget;
+    double target_x = kPredictionHorizon;
     double target_y = s(target_x);  // Get y coordinate from spline
 
     double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));

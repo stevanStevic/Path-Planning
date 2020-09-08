@@ -36,7 +36,8 @@ Internally everything is represented within world scence which takes different i
 
 ### Trajectory generation
 
-After the decision for given mission (state) is made trajectory generation module uses generates 3 anchor waypoints at some distance (e.g. 30m) and uses simple spline tool to fill it with points in between.
+After the decision for given mission (state) is made trajectory generation module uses generates 3 anchor waypoints at some distance aprat (e.g. 30m each) and uses simple spline function to fill it with points in between. In order to change lane we can just set different one as a target lane which will
+generate a smooth transition path.
 Here we could use jerk minimization functions to generate route with most comfort and etc.
 
 ---

@@ -24,6 +24,7 @@ class EgoVehicle
     void ExecuteKeepLane(const std::vector<Vehicle>& predictions);
     void UpdateExistingTrajectory(const TrajectoryPts& prev_trajectory);
     bool GetVehicleAhead(const std::vector<Vehicle>& predictions, Vehicle& vehicle_ahead, uint8_t ego_lane);
+    bool GetNearestVehicle(const std::vector<Vehicle>& predictions, Vehicle& vehicle_ahead, uint8_t ego_lane);
 
     TrajectoryPts trajectory_;
 
@@ -36,7 +37,10 @@ class EgoVehicle
 
     static constexpr double kPrefferedFrontGap{30.0};
 
-    static constexpr double kSpeedLimit{50.0};
+    static constexpr double kSpeedLimit{49.5};
+    static constexpr double kTakeoverLimit{45.0};
+
+    static constexpr double kMaxAcceleration{0.224};
 
     double x_;
     double y_;
@@ -47,7 +51,7 @@ class EgoVehicle
     double end_path_s_;
     double end_path_d_;
 
-    double reference_velocity_{49.5};
+    double reference_velocity_{0.0};
 
     Mission mission_{Mission::kKeepLane};
 };

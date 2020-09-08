@@ -22,9 +22,21 @@ void EgoVehicle::UpdateExistingTrajectory(const TrajectoryPts& prev_trajectory)
 
 void EgoVehicle::UpdatePosition(const Vehicle& localization_data, const TrajectoryPts& prev_trajectory)
 {
+    int prev_size = prev_trajectory.x_pts.size();
+
+    // Sensor fusion
+    if (prev_size > 2)
+    {
+        s_ = localization_data.end_path_s;
+    }
+    else
+    {
+        s_ = localization_data.s;
+    }
+
+
     x_ = localization_data.x;
     y_ = localization_data.y;
-    s_ = localization_data.s;
     d_ = localization_data.d;
     yaw_ = localization_data.yaw;
     velocity_ = localization_data.velocity;
@@ -65,7 +77,6 @@ std::vector<Mission> EgoVehicle::GetPossibleMissions()
 
 double Sigmoid(const double& x, const double& y)
 {
-
     return 1 - exp((-x) / y);
 }
 
@@ -84,14 +95,14 @@ void EgoVehicle::ChooseNextMission(const std::vector<Vehicle>& predictions)
 
         // For every state calucalte cost
         auto new_lane = static_cast<uint8_t>(current_lane_ + static_cast<int8_t>(mission));
-        std::cout << "New lane: " << (int)new_lane << std::endl;
-        if (GetVehicleAhead(predictions, vehicle_ahead, new_lane))
+
+        if (GetNearestVehicle(predictions, vehicle_ahead, new_lane))
         {
             // The slower the lane, higher the cost
             cost = 15000 * Sigmoid(vehicle_ahead.velocity / kSpeedLimit, 1.0);
 
             // Punish beign too close
-            cost += 35000 * Sigmoid(1.0, vehicle_ahead.s - s_);
+            cost += 35000 * Sigmoid(1.0, std::fabs(vehicle_ahead.s - s_));
         }
 
         costs.push_back(cost);
@@ -118,13 +129,29 @@ void EgoVehicle::ChooseNextMission(const std::vector<Vehicle>& predictions)
 
 void EgoVehicle::ExecuteKeepLane(const std::vector<Vehicle>& predictions)
 {
+    bool too_close{false};
     Vehicle vehicle_ahead;
-    ChooseNextMission(predictions);
 
-    // if (GetVehicleAhead(predictions, vehicle_ahead, current_lane_))
-    // {
 
-    // }
+    if (GetVehicleAhead(predictions, vehicle_ahead, current_lane_))
+    {
+        const double gap = (vehicle_ahead.s - s_);
+        if (gap < kPrefferedFrontGap)
+        {
+            ChooseNextMission(predictions);
+
+            too_close = true;
+        }
+    }
+
+    if(too_close && (reference_velocity_ > vehicle_ahead.velocity))
+    {
+        reference_velocity_ -= kMaxAcceleration;
+    }
+    else if(reference_velocity_ < kSpeedLimit)
+    {
+        reference_velocity_ += kMaxAcceleration;
+    }
 }
 
 bool EgoVehicle::IsLaneTransitionCompleted() const
@@ -162,6 +189,34 @@ void EgoVehicle::PlanMission(const std::vector<Vehicle>& predictions)
     default:
         break;
     }
+}
+
+
+bool EgoVehicle::GetNearestVehicle(const std::vector<Vehicle>& predictions,
+                                Vehicle& vehicle_ahead,
+                                uint8_t ego_lane)
+{
+    bool found_vehicle{false};
+    double closest_vehicle_distance = std::numeric_limits<double>::max();
+
+    for (const auto& vehicle : predictions)
+    {
+        const float d = vehicle.d;
+        // Check if detected vehicle is in lane of ego vehicle
+        if ((d > ego_lane * kLaneWidth) && (d < (ego_lane * kLaneWidth + kLaneWidth)))
+        {
+            // Check if it is closer
+            double distance_diff = std::fabs(vehicle.s - s_);
+            if (distance_diff < closest_vehicle_distance)
+            {
+                closest_vehicle_distance = distance_diff;
+                vehicle_ahead = vehicle;
+                found_vehicle = true;
+            }
+        }
+    }
+
+    return found_vehicle;
 }
 
 bool EgoVehicle::GetVehicleAhead(const std::vector<Vehicle>& predictions,
@@ -273,7 +328,7 @@ TrajectoryPts EgoVehicle::GenerateTrajectory(const WorldMap& map)
 
     for(int i = 1; i <= 50 - prev_size; ++i)
     {
-        double N = (target_dist / (.02 * reference_velocity_ / 2.24));
+        double N = (target_dist / (.02 * reference_velocity_ / 2.24));   // converstion from kmph -> mph
         double x_point = x_add_on + target_x/N;
         double y_point = s(x_point);
 

@@ -1,6 +1,12 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
 
+[//]: # (Image References)
+
+[simulator-drive]: ./data/simulator.png "Simulator Drive"
+
+![Simulator drive][simulator-drive]
+
 ## Summary
 
 The path planner is initialized by the main.cpp with the map of the highway and world scene, which has a context of all elements. Elements include ego vehicle, road, other vehicles. Based on the data from the simulator which represents the sensor fusion data from localization and detection adn tracking, the ego vehicle navigates a 3-lane highway without incidents.

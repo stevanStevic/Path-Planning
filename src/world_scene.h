@@ -1,13 +1,14 @@
 #ifndef WORLD_SCENE_H
 #define WORLD_SCENE_H
 
-#include "types.h"
 #include "ego_vehicle.h"
+#include "road.h"
+#include "types.h"
 
 class WorldScene
 {
   public:
-    WorldScene(const WorldMap& map) : map_{map} {}
+    WorldScene(const WorldMap& map);
 
     void UpdateScene(const Vehicle& localization_data,
                      const TrajectoryPts& prev_trajectory,
@@ -16,12 +17,8 @@ class WorldScene
     TrajectoryPts AdvanceEgoVehicle();
 
   private:
-    static constexpr double kSimulationTimeStep{0.02};
-
-    std::vector<Vehicle> predictions_;
-
+    Road road_;
     EgoVehicle ego_vehicle_;
-
     const WorldMap& map_;
 };
 

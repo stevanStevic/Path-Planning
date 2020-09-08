@@ -6,34 +6,27 @@
 
 #include "types.h"
 
+class Road;
+
 class EgoVehicle
 {
   public:
-    TrajectoryPts GenerateTrajectory(const WorldMap& map);
-    // void GenerateAnchorPts();
+    EgoVehicle(const Road& road) : road_(road) {}
+
+    void UpdateExistingTrajectory(const TrajectoryPts& trajectory);
 
     void UpdatePosition(const Vehicle& localization_data, const TrajectoryPts& prev_trajectory);
-    void PlanMission(const std::vector<Vehicle>& predictions);
+    void PlanMission(const Road& road);
 
   private:
-    bool IsLaneTransitionCompleted() const;
-    void ExecuteLaneChange();
-    bool IsLaneChangePossible(const Mission mission) const;
-    std::vector<Mission> GetPossibleMissions();
-    void ChooseNextMission(const std::vector<Vehicle>& predictions);
-    void ExecuteKeepLane(const std::vector<Vehicle>& predictions);
-    void UpdateExistingTrajectory(const TrajectoryPts& prev_trajectory);
-    bool GetVehicleAhead(const std::vector<Vehicle>& predictions, Vehicle& vehicle_ahead, uint8_t ego_lane);
-    bool GetNearestVehicle(const std::vector<Vehicle>& predictions, Vehicle& vehicle_ahead, uint8_t ego_lane);
+    void ExecuteKeepLane(const Road& road);
+    void ExecuteLaneChange(const Road& road);
 
-    TrajectoryPts trajectory_;
+    void ChooseNextMission(const Road& road);
 
-    uint8_t current_lane_{1};
-    static constexpr double kLaneWidth{4.0}; // in meters
-    static constexpr double kLaneCenterOffset{kLaneWidth / 2.0}; // in meters
-    static constexpr uint8_t kNumOfLanes{3};
+    std::vector<Mission> GetPossibleMissions() const;
 
-    static constexpr double kPredictionHorizon{30.0}; // in meters
+
 
     static constexpr double kPrefferedFrontGap{30.0};
 
@@ -41,6 +34,15 @@ class EgoVehicle
     static constexpr double kTakeoverLimit{45.0};
 
     static constexpr double kMaxAcceleration{0.224};
+
+    Mission mission_{Mission::kKeepLane};
+
+    const Road& road_;
+
+  public:
+    uint8_t current_lane_{1};
+
+    TrajectoryPts trajectory_;
 
     double x_;
     double y_;
@@ -53,7 +55,6 @@ class EgoVehicle
 
     double reference_velocity_{0.0};
 
-    Mission mission_{Mission::kKeepLane};
 };
 
 #endif // EGO_VEHICLE_H

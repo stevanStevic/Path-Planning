@@ -20,6 +20,8 @@ constexpr double pi();
 double deg2rad(double x);
 double rad2deg(double x);
 
+double sigmoid(const double& x, const double& y);
+
 // Calculate distance between two points
 double distance(double x1, double y1, double x2, double y2);
 

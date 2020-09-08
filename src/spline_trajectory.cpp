@@ -5,17 +5,17 @@
 #include "road.h"
 #include "spline.h"
 
-const TrajectoryPts SplineTrajectory::GenerateTrajectory(const EgoVehicle& ego_vehicle,
-                                                         const Road& road,
-                                                         const WorldMap& map)
+
+TrajectoryPts SplineTrajectory::GenerateAnchorWaypoints(const EgoVehicle& ego_vehicle,
+                                                        const Road& road,
+                                                        const WorldMap& map,
+                                                        double& ref_x,
+                                                        double& ref_y,
+                                                        double& ref_yaw)
 {
     TrajectoryPts new_trajectory;
 
     const auto prev_size = ego_vehicle.trajectory_.x_pts.size();
-
-    double ref_x = ego_vehicle.x_;
-    double ref_y = ego_vehicle.y_;
-    double ref_yaw = deg2rad(ego_vehicle.yaw_);
 
     if (prev_size < 2)
     {
@@ -51,8 +51,8 @@ const TrajectoryPts SplineTrajectory::GenerateTrajectory(const EgoVehicle& ego_v
 
     for (auto i = 1; i <= 3; ++i)
     {
-        const double anchor_s{ego_vehicle.s_ + kTrajectoryHorizon * i};
-        const double anchor_d{(road.kLaneCenterOffset + road.kLaneWidth * ego_vehicle.current_lane_)};
+        const double anchor_s{ego_vehicle.pos_.s + kTrajectoryHorizon * i};
+        const double anchor_d{road.kLaneCenterOffset + (road.kLaneWidth * ego_vehicle.current_lane_)};
 
         std::vector<double> next_wp{getXY(anchor_s, anchor_d, map.waypoints_s, map.waypoints_x, map.waypoints_y)};
 
@@ -69,6 +69,19 @@ const TrajectoryPts SplineTrajectory::GenerateTrajectory(const EgoVehicle& ego_v
         new_trajectory.x_pts[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 -ref_yaw));
         new_trajectory.y_pts[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 -ref_yaw));
     }
+
+    return new_trajectory;
+}
+
+
+void SplineTrajectory::SplineConnectWaypoints(TrajectoryPts& new_trajectory,
+                                              const EgoVehicle& ego_vehicle,
+                                              const Road& road,
+                                              double& ref_x,
+                                              double& ref_y,
+                                              double& ref_yaw)
+{
+    const auto prev_size = ego_vehicle.trajectory_.x_pts.size();
 
     // Generate new points
     tk::spline s;
@@ -101,6 +114,7 @@ const TrajectoryPts SplineTrajectory::GenerateTrajectory(const EgoVehicle& ego_v
         double x_ref = x_point;
         double y_ref = y_point;
 
+        // Convert back to world map
         x_point = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
         y_point = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
 
@@ -110,6 +124,19 @@ const TrajectoryPts SplineTrajectory::GenerateTrajectory(const EgoVehicle& ego_v
         new_trajectory.x_pts.push_back(x_point);
         new_trajectory.y_pts.push_back(y_point);
     }
+}
+
+const TrajectoryPts SplineTrajectory::GenerateTrajectory(const EgoVehicle& ego_vehicle,
+                                                         const Road& road,
+                                                         const WorldMap& map)
+{
+    double ref_x = ego_vehicle.pos_.x;
+    double ref_y = ego_vehicle.pos_.y;
+    double ref_yaw = deg2rad(ego_vehicle.pos_.yaw);
+
+    TrajectoryPts new_trajectory = GenerateAnchorWaypoints(ego_vehicle, road, map, ref_x, ref_y, ref_yaw);
+
+    SplineConnectWaypoints(new_trajectory, ego_vehicle, road, ref_x, ref_y, ref_yaw);
 
     return new_trajectory;
 }

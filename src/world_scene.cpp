@@ -21,7 +21,7 @@ void WorldScene::UpdateScene(const Vehicle& localization_data,
 
 TrajectoryPts WorldScene::AdvanceEgoVehicle()
 {
-    ego_vehicle_.PlanMission(road_);
+    ego_vehicle_.PlanMission();
 
     TrajectoryPts new_trajectory = SplineTrajectory::GenerateTrajectory(ego_vehicle_, road_, map_);
 

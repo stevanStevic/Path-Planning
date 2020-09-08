@@ -22,6 +22,8 @@ class Road
 
     static constexpr double kSimulationTimeStep{0.02};
 
+    static constexpr double kSpeedLimit{49.5};
+
   private:
     static constexpr uint8_t kNumOfLanes{3};
 

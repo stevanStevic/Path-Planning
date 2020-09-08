@@ -14,6 +14,20 @@ class SplineTrajectory
                                                   const WorldMap& map);
 
   private:
+    static TrajectoryPts GenerateAnchorWaypoints(const EgoVehicle& ego_vehicle,
+                                                 const Road& road,
+                                                 const WorldMap& map,
+                                                 double& ref_x,
+                                                 double& ref_y,
+                                                 double& ref_yaw);
+
+    static void SplineConnectWaypoints(TrajectoryPts& new_trajectory,
+                                       const EgoVehicle& ego_vehicle,
+                                       const Road& road,
+                                       double& ref_x,
+                                       double& ref_y,
+                                       double& ref_yaw);
+
     static constexpr double kTrajectoryHorizon{30.0};
 };
 

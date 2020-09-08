@@ -1,8 +1,42 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
-   
+
+## Summary
+
+The path planner is initialized by the main.cpp with the map of the highway and world scene, which has a context of all elements. Elements include ego vehicle, road, other vehicles. Based on the data from the simulator which represents the sensor fusion data from localization and detection adn tracking, the ego vehicle navigates a 3-lane highway without incidents.
+
+### Behavior
+
+Preffered behavior of the ego vehicle is to stay in its lane with the maximum speed (49.5 miles per hour). In case it detects that the ego vehicle will get to close to a vehicle that is driving ahed of the ego vehicle in the same lane, it has t odecide on next actions. Actions are "simple":
+
+- stay in the lane and slow down to velocity of the vehicle ahead - if there is no faster lane or if it is not safe to change the lane.
+- change lanes: if a faster lane is detected and it is safe to change the lane
+
+This is accomplished by the Finite State Machine (FSM) that has 3 states:
+
+  - Keep Lane
+  - Change Lane Left
+  - Change Lane Right
+
+### Decision
+
+Decision is made based on lowest cost of the lane. For the costs I used distance to the nearest vehicle that would happen for given trajectory and speed of the lane. The lane speed is caluclated also based on nearest vehicle infront.
+
+Cost functions are using sigmoid muliptlied with empiricaly determined weights. This is a place to add different cost functions that target different behaviours like comfort, law, efficency and etc.
+
+### World scene
+
+Internally everything is represented within world scence which takes different inputs, like localization and detection (from simulator), maps, road segments and etc. and compiles into meanigfull context that planner can use. For example, **Road** class contains all information about given road, like number of lanes, speed limit and etc together with positions of other vehicles in their lanes.
+
+### Trajectory generation
+
+After the decision for given mission (state) is made trajectory generation module uses generates 3 anchor waypoints at some distance (e.g. 30m) and uses simple spline tool to fill it with points in between.
+Here we could use jerk minimization functions to generate route with most comfort and etc.
+
+---
+
 ### Simulator.
-You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
+You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).
 
 To run the simulator on Mac/Linux, first make the binary file executable with the following command:
 ```shell
@@ -43,13 +77,13 @@ Here is the data provided from the Simulator to the C++ Program
 #### Previous path data given to the Planner
 
 //Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
+the path has processed since last time.
 
 ["previous_path_x"] The previous list of x points previously given to the simulator
 
 ["previous_path_y"] The previous list of y points previously given to the simulator
 
-#### Previous path's end s and d values 
+#### Previous path's end s and d values
 
 ["end_path_s"] The previous list's last point's frenet s value
 
@@ -57,7 +91,7 @@ the path has processed since last time.
 
 #### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
 
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
+["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates.
 
 ## Details
 
@@ -87,7 +121,7 @@ A really helpful resource for doing this project and creating smooth trajectorie
   * Run either `install-mac.sh` or `install-ubuntu.sh`.
   * If you install from source, checkout to commit `e94b6e1`, i.e.
     ```
-    git clone https://github.com/uWebSockets/uWebSockets 
+    git clone https://github.com/uWebSockets/uWebSockets
     cd uWebSockets
     git checkout e94b6e1
     ```
@@ -104,42 +138,3 @@ using the following settings:
 ## Code Style
 
 Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
-
